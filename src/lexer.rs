@@ -64,18 +64,6 @@ pub enum Token {
     Len
 }
 
-impl fmt::Display for Token {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self {
-            Token::Int(a) => {
-                
-            }
-            _ => write!(f)
-        }
-    write!(f, "({}, {})", self.longitude, self.latitude);
-    }
-}
-
 pub struct Lexer<'a>{
     input: &'a String,
     position: usize,
