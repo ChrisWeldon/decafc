@@ -17,7 +17,8 @@ pub enum Token {
 
     // Literal
     Ident(String),
-    Int(u32),
+    Bool(bool),
+    Int(u64), // Decaf defines ints as 64bit signed, but we are lexing as Token::Minus, Token:Int(<>)
 
     // Operators
     Assign,
@@ -25,6 +26,19 @@ pub enum Token {
     Bang,
     Minus,
     Times,
+    Mod,
+    PlusEquals,
+    MinusEquals,
+    And,
+    Or,
+    
+    // Comparioson Operators
+    Equals,
+    NotEquals,
+    GtEquals,
+    LtEquals,
+    LessThan,
+    GreaterThan,
     
     // Delimiters
     Comma,
@@ -33,20 +47,21 @@ pub enum Token {
     Rparen,
     Lbrace,
     Rbrace,
-
+    Hex, // We are including 0x in the micro syntax
+    Apost,
+    Colon,
+ 
     // Keywords
     Function,
     Let,
     Return,
     If,
-
-    // Comparioson Operators
-    Equals,
-    NotEquals,
-    GtEquals,
-    LtEquals,
-    LessThan,
-    GreaterThan
+    For,
+    Void,
+    While,
+    Break,
+    Continue,
+    Len
 }
 
 impl fmt::Display for Token {
@@ -57,7 +72,7 @@ impl fmt::Display for Token {
             }
             _ => write!(f)
         }
-    write!(f, "({}, {})", self.longitude, self.latitude)
+    write!(f, "({}, {})", self.longitude, self.latitude);
     }
 }
 
