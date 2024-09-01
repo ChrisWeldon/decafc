@@ -104,7 +104,6 @@ impl Lexer<'_> {
 
     pub fn read_integer(&mut self) -> Result<u32, ParseIntError>{
         // consume all numeric characters in a row
-        // TODO test this, I think it messes with the input ownership
         let position = self.position;
         while self.ch.is_some() && self.ch.unwrap().is_numeric() {
             self.read_char();
@@ -115,7 +114,6 @@ impl Lexer<'_> {
 
     pub fn read_literal(&mut self) -> String{
         // consume all alphabetic letters in a row
-        // TODO test this, I think it messes with the input ownership
         let position = self.position;
         while self.ch.is_some() && self.ch.unwrap().is_alphabetic() {
             self.read_char();
@@ -124,6 +122,7 @@ impl Lexer<'_> {
     }
     
     fn on_whitespace(& self) -> bool{
+        // Is the position currently on a whitespace
         match self.ch{
             Some(c)=> {
                 c == ' ' || c == '\t' || c == '\r' || c == '\n' 
@@ -138,7 +137,6 @@ impl Lexer<'_> {
             self.read_char();
         }
     }
-
 
     #[allow(dead_code)]
     pub fn next_token(&mut self) -> Token{
@@ -202,7 +200,7 @@ impl Lexer<'_> {
                 } else if c.is_numeric(){
                     // TODO change from unwrap
                     let integer: u32 = self.read_integer().unwrap();
-                    tok = Token::Int(integer);
+                    tok = Token::Int(integer.into());
                 }else{
                     tok = Token::Illegal
                 }
@@ -220,7 +218,7 @@ pub fn lookup_keyword_token(key: &str) -> Option<Token> {
     match key{ 
         "let" => Some(Token::Let),
         "fn" => Some(Token::Function),
-        "return" => Some(Token::Return)
+        "return" => Some(Token::Return),
         _ => None
     }
 }
