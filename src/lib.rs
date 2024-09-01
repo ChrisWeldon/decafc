@@ -154,11 +154,11 @@ mod tests {
             Token::Lparen,
             Token::Ident("result".to_string()),
             Token::GtEquals,
-            Token::Ident("y".to_string()),
+            Token::Int(10),
             Token::Rparen,
             Token::Lbrace,
             Token::Return,
-            Token::Int(10),
+            Token::Bool(true),
             Token::Rbrace
         ];
 
