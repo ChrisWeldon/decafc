@@ -4,16 +4,24 @@ fn main() {
     // Simple Repl implementation
     use std::io::{self, stdout, Write};
     use lexer::Lexer;
-    let mut buffer_in = String::new();
+    use lexer::Token;
 
-    let lines = std::io::stdin().lines();
-    for line in lines{
+    loop{
         print!("C> ");
+        let mut buffer_in = String::new();
         io::stdout().flush().unwrap();
-        let s = "hello world".to_string();
-        let mut lex = Lexer::build_lexer(& s);
-        let ltoken = lex.next_token();
-        println!("{:?}", ltoken);
+        std::io::stdin().read_line(&mut buffer_in);
+        let mut lex = Lexer::build_lexer(& buffer_in);
+
+        let mut ltoken = lex.next_token();
+        while ltoken != Token::Eof {
+            println!("{:?}", ltoken);
+            if ltoken == Token::Ident("exit".to_string()){
+                return;
+            }
+            ltoken = lex.next_token();
+
+        }
     }
 
 }

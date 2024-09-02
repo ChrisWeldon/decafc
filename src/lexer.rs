@@ -5,8 +5,6 @@
 use std::num::ParseIntError;
 use std::fmt;
 // TODO all these to_string()'s are making it so strings are copied everywhere
-// TODO two character tokens: !=, ==, >=, etc
-// TODO make a REPL
 
 #[derive(Debug)]
 #[derive(PartialEq, Eq)]
@@ -104,26 +102,25 @@ impl Lexer<'_> {
 
     pub fn read_integer(&mut self) -> Result<u32, ParseIntError>{
         // consume all numeric characters in a row
-        // TODO test this, I think it messes with the input ownership
         let position = self.position;
-        while self.ch.is_some() && self.ch.unwrap().is_numeric() {
+        while self.peek_char().is_some() && self.peek_char().unwrap().is_numeric() {
             self.read_char();
         }
 
-        self.input[position .. self.position].parse::<u32>()
+        self.input[position .. self.position+1].parse::<u32>()
     }
 
     pub fn read_literal(&mut self) -> String{
         // consume all alphabetic letters in a row
-        // TODO test this, I think it messes with the input ownership
         let position = self.position;
-        while self.ch.is_some() && self.ch.unwrap().is_alphabetic() {
+        while self.peek_char().is_some() && self.peek_char().unwrap().is_alphabetic() {
             self.read_char();
         }
-        self.input[position .. self.position].to_string()
+        self.input[position .. self.position+1].to_string()
     }
     
     fn on_whitespace(& self) -> bool{
+        // Is the position currently on a whitespace
         match self.ch{
             Some(c)=> {
                 c == ' ' || c == '\t' || c == '\r' || c == '\n' 
@@ -139,7 +136,6 @@ impl Lexer<'_> {
         }
     }
 
-
     #[allow(dead_code)]
     pub fn next_token(&mut self) -> Token{
         // This function basically converts Lexer.ch to a token
@@ -150,12 +146,17 @@ impl Lexer<'_> {
         match self.ch{
             None => tok = Token::Eof,
             Some('+') => tok = Token::Plus,
+            Some('-') => tok = Token::Minus,
+            Some('*') => tok = Token::Times,
+            Some('%') => tok = Token::Mod,
             Some('{') => tok = Token::Lbrace,
             Some('}') => tok = Token::Rbrace,
             Some('(') => tok = Token::Lparen,
             Some(')') => tok = Token::Rparen,
             Some(',') => tok = Token::Comma,
             Some(';') => tok = Token::Semicolon,
+            Some('\'') => tok = Token::Apost,
+            Some(':') => tok = Token::Colon,
             Some('>') => {
                 if let Some('=') = self.peek_char(){
                     self.read_char();
@@ -202,7 +203,7 @@ impl Lexer<'_> {
                 } else if c.is_numeric(){
                     // TODO change from unwrap
                     let integer: u32 = self.read_integer().unwrap();
-                    tok = Token::Int(integer);
+                    tok = Token::Int(integer.into());
                 }else{
                     tok = Token::Illegal
                 }
@@ -220,7 +221,15 @@ pub fn lookup_keyword_token(key: &str) -> Option<Token> {
     match key{ 
         "let" => Some(Token::Let),
         "fn" => Some(Token::Function),
-        "return" => Some(Token::Return)
+        "return" => Some(Token::Return),
+        "true" => Some(Token::Bool(true)),
+        "false" => Some(Token::Bool(false)),
+        "for" => Some(Token::For),
+        "if" => Some(Token::If),
+        "break" => Some(Token::Break),
+        "while" => Some(Token::While),
+        "continue" => Some(Token::Continue),
+        "len" => Some(Token::Len),
         _ => None
     }
 }

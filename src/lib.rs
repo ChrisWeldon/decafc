@@ -80,10 +80,10 @@ mod tests {
 
     #[test]
     fn problem_tokens(){
-        let input = "5; Let".to_string();
+        let input = " hello ) let".to_string();
         let tokens = [
-            Token::Int(5),
-            Token::Semicolon,
+            Token::Ident("hello".to_string()),
+            Token::Rparen,
             Token::Let
         ];
 
@@ -91,7 +91,7 @@ mod tests {
 
         for token in tokens.iter(){
             let ltoken = lex.next_token();
-            println!("Should be ({0}) -> Is ({0})", *token, ltoken);
+            println!("Should be {:?}, is {:?}", *token, ltoken);
             assert_eq!(*token, ltoken);
         }
     }
@@ -154,12 +154,19 @@ mod tests {
             Token::Lparen,
             Token::Ident("result".to_string()),
             Token::GtEquals,
-            Token::Ident("y".to_string()),
+            Token::Int(10),
             Token::Rparen,
             Token::Lbrace,
             Token::Return,
-            Token::Int(10),
+            Token::Bool(true),
             Token::Rbrace
-        ]
+        ];
+
+        let mut lex = Lexer::build_lexer(& input);
+
+        for token in tokens.iter(){
+            let ltoken = lex.next_token();
+            assert_eq!(*token, ltoken)
+        }
     }
 }
