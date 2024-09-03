@@ -3,11 +3,11 @@
  This is a lexer for the MIT's Decaf language implemented by Chris Evans
 */
 use std::num::ParseIntError;
-use std::fmt;
 // TODO all these to_string()'s are making it so strings are copied everywhere
 
 #[derive(Debug)]
 #[derive(PartialEq, Eq)]
+#[derive(Clone)]
 pub enum Token {
     // File
     Illegal,
@@ -231,5 +231,27 @@ pub fn lookup_keyword_token(key: &str) -> Option<Token> {
         "continue" => Some(Token::Continue),
         "len" => Some(Token::Len),
         _ => None
+    }
+}
+
+#[cfg(test)]
+mod tests{
+    use crate::lexer::Lexer;
+    
+    #[test]
+    fn test_read_char(){
+        let input = "hello world".to_string();
+
+        let mut lex = Lexer::build_lexer(& input);
+
+        println!("{:?}", lex.ch.unwrap());
+        assert_eq!(lex.ch.unwrap(), 'h');
+
+        lex.read_char();
+        assert_eq!(lex.ch.unwrap(), 'e');
+
+        lex.read_char();
+        assert_eq!(lex.ch.unwrap(), 'l');
+
     }
 }
