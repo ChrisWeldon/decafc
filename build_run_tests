@@ -1,0 +1,6 @@
+#!/usr/bin/zsh
+
+gcc test_decafc.c tests/test_all.c tests/test_lexer.c \
+    -o build/test_decafc
+
+./build/test_decafc
