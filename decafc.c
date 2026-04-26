@@ -6,8 +6,14 @@
 /* 
  * Lexer/Scanner for decaf
  * 
- * This does not allocate anything to the heap.
  */
+
+/*
+ * What I am doing next:
+ *  - Adding more symbols to the lexer
+ *  - Figuring our a better TDD framework
+ */
+
 
 /*
  * Reads in a word character by character, growing the bufsize as word expands
@@ -58,9 +64,11 @@ void skip_whitespace(FILE *fp){
 }
 
 
+// Tokens have an ID given to them by order, this id is then used to identify which token type they are
+//  I think I should give them a more robust ID that is hard assigned so all my tests don't break often
 typedef enum token_type {
     // Multichar Word (space surrounded)
-    UNDET,      // Not yet determined 
+    UNDET,      // Not yet determined, Probably won't need this 
     ROLLBACK,   // Guessed at a keyword or something, but was wrong
     ERROR_TOK,  // Microsyntax failure
     //
@@ -70,25 +78,27 @@ typedef enum token_type {
     ELSE_K,     // else
     FALSE_K,    // false
     FOR_K,      // for
-    IMPORT_K,   // import
     IF_K,       // if   (not considering this "double char" cause i does not start any doubles)
+    IMPORT_K,   // import
     INT_K,      // int 
     LEN_K,      // len
     RETURN_K,   // return
     TRUE_K,     // true
     VOID_K,     // void
     WHILE_K,    // while
+    
     IDENT,
     STRING,     // /\w+/    (basically any keyword)
     INT,        // /\d+/
-    HEX,        // /0x(\d+)/
+    
     // Single char
-    PLUS,       // +
-    MINUS,      // -
-    TIMES,      // *
+    HEX,        // /0x(\d+)/
     DIV,        // /
-    MOD,        // %
     DOT,        // .
+    MINUS,      // -
+    PLUS,       // +
+    TIMES,      // *
+    MOD,        // %
     GT,         // >
     LT,         // <
     L_PAREN,    // (
@@ -123,6 +133,8 @@ void s0(FILE *fp, token *tok); // Start of token, could be anything
 void ident(FILE *fp, token *tok); // Any letter, going to be an ident
 void keyword(FILE *fp, token *tok, token_type word, char * rem);
 int fpeek(FILE *fp);
+
+const char * remaining_string(int i, char * string);
 
 token read_token(FILE *fp){
     int bufsize = 8; // non-dynamic for the time being
@@ -165,21 +177,74 @@ void scan_fail(token *tok){
     exit(1);
 }
 
+
+const char * remaining_string(int s, char * string){
+    int len = strlen(string); 
+}
+
+
+// This is to help cleanup the all the switch statement branches
+#define KEYWORD_BRANCH(word, type) \
+    if(c==word[0]){ \
+        keyword(fp, tok, type, "ontinue"); \
+    }
+
+
 void s0(FILE *fp, token *tok){ // This is 
     //printf("-> s0 %s\n", tok->lexeme);
+    /*
+     * S0: State-Zero of a DFA Graph
+     *  The next state (S1, S2, S3) denoted by their definitive keyword
+     *  is determined by the first and second letter of the keyword.
+     *  This has the limitation that two keywords cannot share more than
+     *  two starting characters (An easy ask). Rollbacks are not necessary 
+     *  because we have said invariant. The time complexity remains at 0(n).
+     */
     token_addchar(fgetc(fp), tok);
     int c = current_char(tok); // current_char
-    if(c=='f'){
-        keyword(fp, tok, FOR_K, "or"); 
-    }
+    // This may be a good candidate for a macro
     if(c=='b' && fpeek(fp)=='r'){
-        //break_k(fp, tok);
         keyword(fp, tok, BREAK_K, "reak");
     }
     if(c=='b' && fpeek(fp)=='o'){
-        //break_k(fp, tok);
         keyword(fp, tok, BOOL_K, "ool");
     }
+    KEYWORD_BRANCH("continue", CONTINUE_K);
+    if(c=='e'){
+        keyword(fp, tok, ELSE_K, "lse");
+    }
+    if(c=='f' && fpeek(fp)=='o'){
+        keyword(fp, tok, FOR_K, "or"); 
+    }
+    if(c=='f' && fpeek(fp) == 'a'){
+        keyword(fp, tok, FALSE_K, "alse");
+    }
+    if(c=='i' && fpeek(fp) == 'f'){
+        keyword(fp, tok, IF_K, "f");
+    }
+    if(c=='i' && fpeek(fp) == 'n'){
+        keyword(fp, tok, INT_K, "nt");
+    }
+    if(c=='i' && fpeek(fp) == 'm'){
+        keyword(fp, tok, IMPORT_K, "mport");
+    }
+    if(c=='l'){
+        keyword(fp, tok, LEN_K, "en");
+    }
+    if(c=='r'){
+        keyword(fp, tok, RETURN_K, "eturn");
+    }
+    if(c=='t'){
+        keyword(fp, tok, TRUE_K, "rue");
+    }
+    if(c=='v'){
+        keyword(fp, tok, VOID_K, "oid");
+    }
+
+    if(c=='w'){
+        keyword(fp, tok, WHILE_K, "hile");
+    }
+
     if(c>='a' && c<='z' && tok->type==UNDET){
         tok->type == UNDET;
         ident(fp, tok);
