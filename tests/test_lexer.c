@@ -10,10 +10,6 @@ TEST("read_word reads one word"){
     fclose(fp1);
 }
 
-TEST("read_word reads one word"){
-    ASSERT(true);
-}
-
 TEST("test all keywords"){
     // A list of all keywords in alphabetical order
     FILE *fp2 = fopen("tests/all_keywords.decaf", "r"); // Macro is called in test_decafc.c
@@ -33,5 +29,39 @@ TEST("test all keywords"){
     ASSERT(read_token(fp2).type == TRUE_K);
     ASSERT(read_token(fp2).type == VOID_K);
     ASSERT(read_token(fp2).type == WHILE_K);
+}
+
+TEST("test all symbols"){
+    // A list of all keywords in alphabetical order
+    FILE *fp3 = fopen("tests/all_symbols.decaf", "r"); // Macro is called in test_decafc.c
+    ASSERT(fp3 != NULL);
+
+    // Order is dictated by the testing file
+    ASSERT(read_token(fp3).type == DIV);
+    ASSERT(read_token(fp3).type == DOT);
+    ASSERT(read_token(fp3).type == EQUALS);
+    ASSERT(read_token(fp3).type == MINUS);
+    ASSERT(read_token(fp3).type == PLUS);
+    ASSERT(read_token(fp3).type == TIMES);
+    ASSERT(read_token(fp3).type == MOD);
+    ASSERT(read_token(fp3).type == GT);
+    ASSERT(read_token(fp3).type == LT);
+    ASSERT(read_token(fp3).type == L_PAREN);
+    ASSERT(read_token(fp3).type == R_PAREN);
+    ASSERT(read_token(fp3).type == L_BRACE);
+    ASSERT(read_token(fp3).type == R_BRACE);
+    ASSERT(read_token(fp3).type == Q_MARK);
+    ASSERT(read_token(fp3).type == BANG);
+    ASSERT(read_token(fp3).type == COL);
+    ASSERT(read_token(fp3).type == SEMI_COL);
+    ASSERT(read_token(fp3).type == QUOTE);
+    ASSERT(read_token(fp3).type == QUOTE_D);
+
+    ASSERT(read_token(fp3).type == GT_E);
+    ASSERT(read_token(fp3).type == LT_E);
+    ASSERT(read_token(fp3).type == EE);
+    ASSERT(read_token(fp3).type == NE);
+    ASSERT(read_token(fp3).type == AND);
+    ASSERT(read_token(fp3).type == OR);
 }
 #endif

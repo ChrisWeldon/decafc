@@ -11,7 +11,6 @@
 /*
  * What I am doing next:
  *  - Adding more symbols to the lexer
- *  - Figuring our a better TDD framework
  */
 
 
@@ -23,6 +22,14 @@
  * 
  * returns: a (char *) read out. If it is EOF then returns an empty string.
 */
+
+#ifdef DEBUG
+#define dprintf(fmt, ...) printf(fmt, __VA_ARGS__); 
+#else
+#define dprintf(...)
+#endif
+
+
 bool is_whitespace(int c){
     return c == ' ' || c == EOF || c == '\n';
 }
@@ -96,6 +103,7 @@ typedef enum token_type {
     // Single char
     DIV,        // /
     DOT,        // .
+    EQUALS,     // =
     MINUS,      // -
     PLUS,       // +
     TIMES,      // *
@@ -139,7 +147,7 @@ token read_token(FILE *fp){
     int offset = 0;
 
     token tok = {
-        .lexeme = malloc(bufsize),
+        .lexeme=malloc(bufsize),
         .bufsize=bufsize,
         .offset=0,
         .type=UNDET
@@ -186,13 +194,23 @@ void s0(FILE *fp, token *tok){ // This is
         keyword(fp, tok, type, word + sizeof(char)); \
     }
 
-// This is to help cleanup the all the switch statement branches
-#define CHAR_BRANCH(char, type) \
-    if(c==char){ \
-        keyword(fp, tok, type,); \
+#define CHAR_BRANCH(char_inv, type_inv) \
+    if(c==char_inv){ \
+        tok->type = type_inv; \
+        skip_whitespace(fp); \
     }
 
-    //printf("-> s0 %s\n", tok->lexeme);
+#define DOUBLE_CHAR_BRANCH(char_inv, type_inv, followup_char, type_res) \
+    char peek = fpeek(fp); \
+    if(c==char_inv && fpeek(fp)!=followup_char){ \
+        tok->type = type_inv; \
+        skip_whitespace(fp); \
+    } \
+    else if(c==followup_char && peek==followup_char){ \
+        tok->type = type_res; \
+        skip_whitespace(fp); \
+    }
+
     /*
      * S0: State-Zero of a DFA Graph
      *  The next state (S1, S2, S3) denoted by their definitive keyword
@@ -219,27 +237,25 @@ void s0(FILE *fp, token *tok){ // This is
     KEYWORD_BRANCH("void", VOID_K);
     KEYWORD_BRANCH("while", WHILE_K);
 
-    /*
-    CHAR_BRANCH("/", DIV);
-    CHAR_BRANCH(".", DOT);
-    CHAR_BRANCH("-", MINUS);
-    CHAR_BRANCH("+", PLUS);
-    CHAR_BRANCH("*", TIMES);
-    CHAR_BRANCH("%", MODS);
-    CHAR_BRANCH(">", GT);
-    CHAR_BRANCH("<", LT);
-    CHAR_BRANCH("(", L_PARENTH);
-    CHAR_BRANCH(")", R_PARENTH);
-    CHAR_BRANCH("[", L_BRACE);
-    CHAR_BRANCH("]", R_BRACE);
-    CHAR_BRANCH("?", Q_MARK);
-    CHAR_BRANCH("!", BANG);
-    CHAR_BRANCH(":", COL);
-    CHAR_BRANCH(";", SEMI_COL);
-    CHAR_BRANCH("'", QUOTE);
-    CHAR_BRANCH("\"", QUOTE_D);
-    */
-
+    CHAR_BRANCH('/', DIV);
+    CHAR_BRANCH('.', DOT);
+    CHAR_BRANCH('=', EQUALS);
+    CHAR_BRANCH('-', MINUS);
+    CHAR_BRANCH('+', PLUS);
+    CHAR_BRANCH('*', TIMES);
+    CHAR_BRANCH('%', MOD);
+    DOUBLE_CHAR_BRANCH('>', GT, '=', GT_E);  // GT_E
+    CHAR_BRANCH('<', LT);  // LT_E
+    CHAR_BRANCH('(', L_PAREN);
+    CHAR_BRANCH(')', R_PAREN);
+    CHAR_BRANCH('[', L_BRACE);
+    CHAR_BRANCH(']', R_BRACE);
+    CHAR_BRANCH('?', Q_MARK);
+    CHAR_BRANCH('!', BANG);
+    CHAR_BRANCH(':', COL);
+    CHAR_BRANCH(';', SEMI_COL);
+    CHAR_BRANCH('\'', QUOTE);
+    CHAR_BRANCH('\"', QUOTE_D);
 
     if(c>='a' && c<='z' && tok->type==UNDET){
         tok->type == UNDET;
@@ -247,7 +263,6 @@ void s0(FILE *fp, token *tok){ // This is
     }
     
     if(is_whitespace(c) && tok->type == UNDET){
-        //printf("-> <ident> %s\n", tok->lexeme);
         tok->type = IDENT;
         skip_whitespace(fp);
     }
@@ -256,7 +271,6 @@ void s0(FILE *fp, token *tok){ // This is
 
 void ident(FILE *fp, token *tok){
     // This is working with identifier
-    //printf("-> ident %s\n", tok->lexeme);
     token_addchar(fgetc(fp), tok);
     int c = current_char(tok); // current_char
     while(1){
@@ -264,10 +278,9 @@ void ident(FILE *fp, token *tok){
             //ident(fp, tok);
             token_addchar(fgetc(fp), tok);
             c = current_char(tok);
-            //printf("-> ident %s\n", tok->lexeme);
             continue;
         }else if(is_whitespace(c)){
-            printf("-> <ident> %s\n", tok->lexeme);
+            dprintf("-> <ident> %s\n", tok->lexeme);
             tok->type = IDENT;
             skip_whitespace(fp);
             return;
@@ -281,14 +294,12 @@ void keyword(FILE *fp, token *tok, token_type word, char *rem){
      * keyword is DFA which is kicked off by first letter,
      * and each following letter is a state, which must end in whitespace
      */
-    // printf("-> %s %s\n", rem, tok->lexeme);
     token_addchar(fgetc(fp), tok);
     int c = current_char(tok); // current_char
     
     for(int i=0;i<strlen(rem);i++){
         if(c == rem[i]){
             // good
-            //printf("-> %s %s\n", rem, tok->lexeme); // TODO Macro this
             token_addchar(fgetc(fp), tok);
             c = current_char(tok); // current_char
             continue;
@@ -315,7 +326,7 @@ void keyword(FILE *fp, token *tok, token_type word, char *rem){
 
     tok->type=word;
     skip_whitespace(fp);
-    printf("-> <%d> %s\n", word, tok->lexeme);
+    dprintf("-> <%d> %s\n", word, tok->lexeme);
     return;
 }
 
@@ -325,7 +336,7 @@ void tokenize(FILE *fp) {
     char *word;
     while(word = read_word(fp), strcmp("", word) != 0){
         skip_whitespace(fp);
-        printf("%s: %zu \n", word, sizeof(word));
+        dprintf("%s: %zu \n", word, sizeof(word));
     }
 }
 
@@ -334,15 +345,15 @@ void tokenize(FILE *fp) {
 int main(int argc, char **argv){
     
     if(argv[1] == NULL){
-        printf("%i\n arguments provided", argc);
+        dprintf("%i\n arguments provided", argc);
     }
 
     FILE *fp;
     fp = fopen(argv[1], "r");
-    printf("Compiling: %s\n", argv[1]);
+    dprintf("Compiling: %s\n", argv[1]);
 
     if(fp == NULL){
-        printf("Cannot find or open file: %s\n", argv[1]);
+        dprintf("Cannot find or open file: %s\n", argv[1]);
         exit(1);
     }
 
