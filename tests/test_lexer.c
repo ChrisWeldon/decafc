@@ -2,10 +2,6 @@
 // All headers that are needed
 #include "../decafc.c"
 #elif defined TESTS
-TEST("remaning string"){
-    ASSERT(remaining_string(1, "continue") == "ontinue");
-    ASSERT(remaining_string(3, "tinue") == "tinue");
-}
 
 TEST("read_word reads one word"){
     FILE *fp1 = fopen("tests/english.decaf", "r"); // Macro is called in test_decafc.c

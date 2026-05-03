@@ -87,12 +87,13 @@ typedef enum token_type {
     VOID_K,     // void
     WHILE_K,    // while
     
+    // Variadic
     IDENT,
     STRING,     // /\w+/    (basically any keyword)
     INT,        // /\d+/
+    HEX,        // /0x(\d+)/
     
     // Single char
-    HEX,        // /0x(\d+)/
     DIV,        // /
     DOT,        // .
     MINUS,      // -
@@ -107,7 +108,6 @@ typedef enum token_type {
     R_BRACE,    // ]
     Q_MARK,     // ?
     BANG,       // !
-    NEG,        // -
     COL,        // :
     SEMI_COL,   // ;
     QUOTE,      // '
@@ -134,8 +134,6 @@ void ident(FILE *fp, token *tok); // Any letter, going to be an ident
 void keyword(FILE *fp, token *tok, token_type word, char * rem);
 int fpeek(FILE *fp);
 
-const char * remaining_string(int i, char * string);
-
 token read_token(FILE *fp){
     int bufsize = 8; // non-dynamic for the time being
     int offset = 0;
@@ -151,6 +149,7 @@ token read_token(FILE *fp){
 }
 
 void token_addchar(char c, token *tok){
+    // Tacks c onto the token lexeme
     tok->lexeme[tok->offset] = c;
     tok->offset++;
 }
@@ -165,6 +164,7 @@ int current_char(token *tok){
 
 int fpeek(FILE *fp){
     /* This function is used in place of a one state rollback */
+    // NOTE: This could be a huge performance problem
     int c = fgetc(fp);
     ungetc(c, fp);
     return c;
@@ -178,19 +178,20 @@ void scan_fail(token *tok){
 }
 
 
-const char * remaining_string(int s, char * string){
-    int len = strlen(string); 
-}
-
+void s0(FILE *fp, token *tok){ // This is 
 
 // This is to help cleanup the all the switch statement branches
 #define KEYWORD_BRANCH(word, type) \
-    if(c==word[0]){ \
-        keyword(fp, tok, type, "ontinue"); \
+    if(c==word[0] && fpeek(fp)==word[1]){ \
+        keyword(fp, tok, type, word + sizeof(char)); \
     }
 
+// This is to help cleanup the all the switch statement branches
+#define CHAR_BRANCH(char, type) \
+    if(c==char){ \
+        keyword(fp, tok, type,); \
+    }
 
-void s0(FILE *fp, token *tok){ // This is 
     //printf("-> s0 %s\n", tok->lexeme);
     /*
      * S0: State-Zero of a DFA Graph
@@ -203,47 +204,42 @@ void s0(FILE *fp, token *tok){ // This is
     token_addchar(fgetc(fp), tok);
     int c = current_char(tok); // current_char
     // This may be a good candidate for a macro
-    if(c=='b' && fpeek(fp)=='r'){
-        keyword(fp, tok, BREAK_K, "reak");
-    }
-    if(c=='b' && fpeek(fp)=='o'){
-        keyword(fp, tok, BOOL_K, "ool");
-    }
+    KEYWORD_BRANCH("break", BREAK_K);
+    KEYWORD_BRANCH("bool", BOOL_K);
     KEYWORD_BRANCH("continue", CONTINUE_K);
-    if(c=='e'){
-        keyword(fp, tok, ELSE_K, "lse");
-    }
-    if(c=='f' && fpeek(fp)=='o'){
-        keyword(fp, tok, FOR_K, "or"); 
-    }
-    if(c=='f' && fpeek(fp) == 'a'){
-        keyword(fp, tok, FALSE_K, "alse");
-    }
-    if(c=='i' && fpeek(fp) == 'f'){
-        keyword(fp, tok, IF_K, "f");
-    }
-    if(c=='i' && fpeek(fp) == 'n'){
-        keyword(fp, tok, INT_K, "nt");
-    }
-    if(c=='i' && fpeek(fp) == 'm'){
-        keyword(fp, tok, IMPORT_K, "mport");
-    }
-    if(c=='l'){
-        keyword(fp, tok, LEN_K, "en");
-    }
-    if(c=='r'){
-        keyword(fp, tok, RETURN_K, "eturn");
-    }
-    if(c=='t'){
-        keyword(fp, tok, TRUE_K, "rue");
-    }
-    if(c=='v'){
-        keyword(fp, tok, VOID_K, "oid");
-    }
+    KEYWORD_BRANCH("else", ELSE_K);
+    KEYWORD_BRANCH("for", FOR_K);
+    KEYWORD_BRANCH("false", FALSE_K);
+    KEYWORD_BRANCH("if", IF_K);
+    KEYWORD_BRANCH("import", IMPORT_K);
+    KEYWORD_BRANCH("int", INT_K);
+    KEYWORD_BRANCH("len", LEN_K);
+    KEYWORD_BRANCH("return", RETURN_K);
+    KEYWORD_BRANCH("true", TRUE_K);
+    KEYWORD_BRANCH("void", VOID_K);
+    KEYWORD_BRANCH("while", WHILE_K);
 
-    if(c=='w'){
-        keyword(fp, tok, WHILE_K, "hile");
-    }
+    /*
+    CHAR_BRANCH("/", DIV);
+    CHAR_BRANCH(".", DOT);
+    CHAR_BRANCH("-", MINUS);
+    CHAR_BRANCH("+", PLUS);
+    CHAR_BRANCH("*", TIMES);
+    CHAR_BRANCH("%", MODS);
+    CHAR_BRANCH(">", GT);
+    CHAR_BRANCH("<", LT);
+    CHAR_BRANCH("(", L_PARENTH);
+    CHAR_BRANCH(")", R_PARENTH);
+    CHAR_BRANCH("[", L_BRACE);
+    CHAR_BRANCH("]", R_BRACE);
+    CHAR_BRANCH("?", Q_MARK);
+    CHAR_BRANCH("!", BANG);
+    CHAR_BRANCH(":", COL);
+    CHAR_BRANCH(";", SEMI_COL);
+    CHAR_BRANCH("'", QUOTE);
+    CHAR_BRANCH("\"", QUOTE_D);
+    */
+
 
     if(c>='a' && c<='z' && tok->type==UNDET){
         tok->type == UNDET;
