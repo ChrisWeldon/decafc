@@ -32,7 +32,7 @@ TEST("test all keywords"){
 }
 
 TEST("test all symbols"){
-    // A list of all keywords in alphabetical order
+    // A list of all symbols in alphabetical order
     FILE *fp3 = fopen("tests/all_symbols.decaf", "r"); // Macro is called in test_decafc.c
     ASSERT(fp3 != NULL);
 

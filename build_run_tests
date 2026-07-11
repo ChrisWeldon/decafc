@@ -1,5 +1,6 @@
 #!/usr/bin/zsh
 
+# compiles test_decafc.c and all of it's tests
 gcc test_decafc.c tests/test_all.c tests/test_lexer.c \
     -o build/test_decafc
 

@@ -24,38 +24,14 @@
 */
 
 #ifdef DEBUG
-#define dprintf(fmt, ...) printf(fmt, __VA_ARGS__); 
+#define printf_debug(fmt, ...) printf(fmt, __VA_ARGS__); 
 #else
-#define dprintf(...)
+#define printf_debug(...)
 #endif
 
 
 bool is_whitespace(int c){
     return c == ' ' || c == EOF || c == '\n';
-}
-
-char * read_word(FILE *fp){
-    
-    int bufsize = 4; // 4 chars to start
-    int offset = 0;
-    int c;
-    
-    char* buf = malloc(bufsize);
-
-    if(buf == NULL) // rare but checking anyways
-        return NULL;
-    
-    while(c = fgetc(fp), !is_whitespace(c)){ // TODO make is_space function 
-        if(offset == bufsize-1){
-            bufsize = bufsize*2;
-            buf = realloc(buf, bufsize);
-        }
-        buf[offset] = c;
-        offset++;
-    }
-
-    buf[offset] = '\0'; 
-    return buf;
 }
 
 /*
@@ -142,18 +118,23 @@ void ident(FILE *fp, token *tok); // Any letter, going to be an ident
 void keyword(FILE *fp, token *tok, token_type word, char * rem);
 int fpeek(FILE *fp);
 
-token read_token(FILE *fp){
+token * read_token(FILE *fp){
     int bufsize = 8; // non-dynamic for the time being
     int offset = 0;
 
-    token tok = {
-        .lexeme=malloc(bufsize),
-        .bufsize=bufsize,
-        .offset=0,
-        .type=UNDET
-    };
-    s0(fp, &tok);
+    token *tok = malloc(sizeof(token));
+    tok->type=UNDET;
+    tok->bufsize=bufsize;
+    tok->offset=0;
+    tok->lexeme=malloc(bufsize);
+
+    s0(fp, tok);
     return tok;
+}
+
+void free_token(token *tok){
+    free(tok->lexeme);
+    free(tok);
 }
 
 void token_addchar(char c, token *tok){
@@ -210,7 +191,8 @@ void s0(FILE *fp, token *tok){ // This is
         tok->type = type_res; \
         skip_whitespace(fp); \
     }
-
+    // -
+    
     /*
      * S0: State-Zero of a DFA Graph
      *  The next state (S1, S2, S3) denoted by their definitive keyword
@@ -280,7 +262,7 @@ void ident(FILE *fp, token *tok){
             c = current_char(tok);
             continue;
         }else if(is_whitespace(c)){
-            dprintf("-> <ident> %s\n", tok->lexeme);
+            printf_debug("-> <ident> %s\n", tok->lexeme);
             tok->type = IDENT;
             skip_whitespace(fp);
             return;
@@ -309,7 +291,7 @@ void keyword(FILE *fp, token *tok, token_type word, char *rem){
             return;
         }
         if(is_whitespace(c) && tok->type==UNDET){
-            printf("-> <ident> %s\n", tok->lexeme);
+            printf_debug("-> <ident> %s\n", tok->lexeme);
             tok->type=IDENT;
             skip_whitespace(fp);
             return;
@@ -326,47 +308,56 @@ void keyword(FILE *fp, token *tok, token_type word, char *rem){
 
     tok->type=word;
     skip_whitespace(fp);
-    dprintf("-> <%d> %s\n", word, tok->lexeme);
+    printf_debug("-> <%d> %s\n", word, tok->lexeme);
     return;
 }
 
 void tokenize(FILE *fp) {
     int i = 0; 
     
-    char *word;
-    while(word = read_word(fp), strcmp("", word) != 0){
-        skip_whitespace(fp);
-        dprintf("%s: %zu \n", word, sizeof(word));
+    token *token;
+    while(token = read_token(fp), strcmp("", token->lexeme) != 0){
+        printf("%s: %zu \n", token->lexeme, sizeof(token->lexeme));
     }
+    // TODO free each token 
+}
+
+void tokenize_buffer(char *){
+
 }
 
 
 #ifndef TESTBUILD
 int main(int argc, char **argv){
-    
+    if(argc==1){
+        char buffer[256]; // Not dynamic yet
+        printf("decafc tokenizer REPL\n");
+        do{
+            if(strcmp(buffer, "exit\n") == 0){
+                printf("Terminating\n");
+                return 0;
+            }
+            printf("decafc > ");
+            tokenize_buffer(buffer);
+        }while(fgets(buffer, 256, stdin));
+    }
+    /*
     if(argv[1] == NULL){
-        dprintf("%i\n arguments provided", argc);
+        printf_debug("%i\n arguments provided", argc);
     }
 
     FILE *fp;
     fp = fopen(argv[1], "r");
-    dprintf("Compiling: %s\n", argv[1]);
+    printf_debug("Compiling: %s\n", argv[1]);
 
     if(fp == NULL){
-        dprintf("Cannot find or open file: %s\n", argv[1]);
+        printf_debug("Cannot find or open file: %s\n", argv[1]);
         exit(1);
     }
+    */
+    
 
-    read_token(fp);
-    read_token(fp);
-    read_token(fp);
-    read_token(fp);
-    read_token(fp);
-    read_token(fp);
-    read_token(fp);
-    read_token(fp);
-    read_token(fp);
-    read_token(fp);
+    //tokenize(fp);
 }
 #endif
 
