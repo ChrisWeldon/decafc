@@ -1,7 +1,7 @@
-int mynumber = 10;
+int x;
 if(mynumber == 7){
-    return true;
+    x = 10; hello
 }else{
-    return false;
-}
+    y = 10;
 
+}

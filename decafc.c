@@ -29,23 +29,12 @@
 #define printf_debug(...)
 #endif
 
+#define COL_COUNT 80 // max number of characters read into scanning buffer
+
 
 bool is_whitespace(int c){
-    return c == ' ' || c == EOF || c == '\n';
+    return c == ' ' || c == EOF || c == '\n' || c == '\t' || c == '\f' || c == '\r' || c == '\v';
 }
-
-/*
- * Reads in all the whitespace
- */
-void skip_whitespace(FILE *fp){
-    // assumes we were at whitesace
-    int c;
-    do{
-        c = fgetc(fp);
-    }while(c == ' ' || c == '\n');
-    ungetc(c, fp);
-}
-
 
 // Tokens have an ID given to them by order, this id is then used to identify which token type they are
 //  I think I should give them a more robust ID that is hard assigned so all my tests don't break often
@@ -90,6 +79,8 @@ typedef enum token_type {
     R_PAREN,    // )
     L_BRACE,    // [
     R_BRACE,    // ]
+    L_CURLY,    // {
+    R_CURLY,    // }
     Q_MARK,     // ?
     BANG,       // !
     COL,        // :
@@ -105,6 +96,67 @@ typedef enum token_type {
     OR          // ||
 } token_type;
 
+char * get_token_type(token_type type){
+    switch(type){
+        case UNDET: return "UNDET" ;      // Not yet determined, Probably won't need this 
+        case  ROLLBACK: return "ROLLBACK" ;   // Guessed at a keyword or something, but was wrong
+        case  ERROR_TOK: return "ERROR_TOK" ;  // Microsyntax failure
+        //
+        case  BOOL_K: return "BOOL_K" ;     // bool
+        case  BREAK_K: return "BREAK_K" ;    // break
+        case  CONTINUE_K: return "CONTINUE_K" ; // continue
+        case  ELSE_K: return "ELSE_K" ;     // else
+        case  FALSE_K: return "FALSE_K" ;    // false
+        case  FOR_K: return "FOR_K" ;      // for
+        case  IF_K: return "IF_K" ;       // if   (not considering this "double char" cause i does not start any doubles)
+        case  IMPORT_K: return "IMPORT_K" ;   // import
+        case  INT_K: return "INT_K" ;      // int 
+        case  LEN_K: return "LEN_K" ;      // len
+        case  RETURN_K: return "RETURN_K" ;   // return
+        case  TRUE_K: return "TRUE_K" ;     // true
+        case  VOID_K: return "VOID_K" ;     // void
+        case  WHILE_K: return "WHILE_K" ;    // while
+        
+        // Variadic
+        case IDENT: return "IDENT" ;
+        case STRING: return "STRING" ;     // /\w+/    (basically any keyword)
+        case INT: return "INT" ;        // /\d+/
+        case HEX: return "HEX" ;        // /0x(\d+)/
+        
+        // Single char
+        case DIV: return "DIV" ;        // /
+        case  DOT: return "DOT" ;        // .
+        case  EQUALS: return "EQUALS" ;     // =
+        case  MINUS: return "MINUS" ;      // -
+        case  PLUS: return "PLUS" ;       // +
+        case  TIMES: return "TIMES" ;      // *
+        case  MOD: return "MOD" ;        // %
+        case  GT: return "GT" ;         // >
+        case  LT: return "LT" ;         // <
+        case  L_PAREN: return "L_PAREN" ;    // (
+        case  R_PAREN: return "R_PAREN" ;    // )
+        case  L_BRACE: return "L_BRACE" ;    // [
+        case  R_BRACE: return "R_BRACE" ;    // ]
+        case  L_CURLY: return "L_CURLY" ;    // {
+        case  R_CURLY: return "R_CURLY" ;    // }
+        case  Q_MARK: return "Q_MARK" ;     // ?
+        case  BANG: return "BANG" ;       // !
+        case  COL: return "COL" ;        // :
+        case  SEMI_COL: return "SEMI_COL" ;   // ;
+        case  QUOTE: return "QUOTE" ;      // '
+        case  QUOTE_D: return "QUOTE_D" ;    // "
+        // Double char
+        case GT_E: return "GT_E" ;       // >=
+        case  LT_E: return "LT_E" ;       // <=
+        case  EE: return "EE" ;         // ==
+        case  NE: return "NE" ;         // !=
+        case  AND: return "AND" ;        // &&
+        case  OR: return "OR";          // ||
+        default:
+            return "UNDET";
+    }
+}
+
 typedef struct token {
     token_type type; 
     int bufsize;
@@ -112,23 +164,69 @@ typedef struct token {
     char *lexeme;
 } token;
 
+typedef struct textbuf {
+    char *text;
+    int size;
+    int loc;
+} textbuf;
 
-void s0(FILE *fp, token *tok); // Start of token, could be anything
-void ident(FILE *fp, token *tok); // Any letter, going to be an ident
-void keyword(FILE *fp, token *tok, token_type word, char * rem);
+/*
+ * Reads in all the whitespace
+ */
+
+void textbuf_ungetc(char c, textbuf *buf);
+int textbuf_getc(textbuf *buf);
+int textbuf_peekc(textbuf *buf);
+
+void s0(textbuf *buffer, token *tok); // Start of token, could be anything
+void ident(textbuf *buffer, token *tok); // Any letter, going to be an ident
+void keyword(textbuf *buffer, token *tok, token_type word, char * rem);
+void number(textbuf *buffer, token *tok);
+void decimal(textbuf *buffer, token *tok);
 int fpeek(FILE *fp);
 
-token * read_token(FILE *fp){
-    int bufsize = 8; // non-dynamic for the time being
+void token_print(token *tok);
+void token_addchar(char c, token *tok);
+void token_removechar(token *tok);
+
+void skip_whitespace(textbuf *buffer){
+    // assumes we were at whitesace
+    int c = textbuf_peekc(buffer);
+    while(is_whitespace(c)){
+        textbuf_getc(buffer); // Eat it
+        c = textbuf_peekc(buffer);
+    }
+}
+
+int textbuf_getc(textbuf *buf){
+    if(buf->loc==buf->size-1){
+        return '\0';
+    }
+    return buf->text[buf->loc++];
+}
+
+void textbuf_ungetc(char c, textbuf *buf){
+    buf->loc--;
+}
+
+int textbuf_peekc(textbuf *buf){
+    if(buf->loc>=buf->size){
+        return '\0';
+    }
+    return buf->text[buf->loc];
+}
+
+token * read_token(textbuf *buffer, token *tok){
+    int bufsize = 8; // Different from buffer non-dynamic for the time being
     int offset = 0;
 
-    token *tok = malloc(sizeof(token));
     tok->type=UNDET;
     tok->bufsize=bufsize;
-    tok->offset=0;
+    tok->offset=0; // This is not a buffer offset, this is for copying from the buffer to the lexeme
     tok->lexeme=malloc(bufsize);
-
-    s0(fp, tok);
+    
+    skip_whitespace(buffer);
+    s0(buffer, tok);
     return tok;
 }
 
@@ -159,40 +257,69 @@ int fpeek(FILE *fp){
     return c;
 }
 
-
-void scan_fail(token *tok){
+void scan_fail(token *tok, int c){
     printf("Error when scanning token: %s\n", tok->lexeme);
     printf("Unexpected character: \'%c\'\n", current_char(tok));
     exit(1);
 }
 
+void expected(token *tok, char * expected, int got){
+    printf("Error when scanning token: %s\n", tok->lexeme);
+    printf("\t Expected: %s. Got: \'%c\'\n", expected, got);
+    exit(1);
+}
 
-void s0(FILE *fp, token *tok){ // This is 
-
-// This is to help cleanup the all the switch statement branches
+void s0(textbuf *buffer, token *tok){
+    // TODO simplify this, the processors are tough to debug 
+    // This is to help cleanup the all the switch statement branches
+    
 #define KEYWORD_BRANCH(word, type) \
-    if(c==word[0] && fpeek(fp)==word[1]){ \
-        keyword(fp, tok, type, word + sizeof(char)); \
+    if(c==word[0] && textbuf_peekc(buffer)==word[1]){ \
+        token_addchar(c, tok); \
+        keyword(buffer, tok, type, word + sizeof(char)); \
+        return; \
     }
 
 #define CHAR_BRANCH(char_inv, type_inv) \
-    if(c==char_inv){ \
+    if(c==char_inv){  \
         tok->type = type_inv; \
-        skip_whitespace(fp); \
+        token_addchar(c, tok); \
+        skip_whitespace(buffer);  \
+        return; \
     }
 
 #define DOUBLE_CHAR_BRANCH(char_inv, type_inv, followup_char, type_res) \
-    char peek = fpeek(fp); \
-    if(c==char_inv && fpeek(fp)!=followup_char){ \
-        tok->type = type_inv; \
-        skip_whitespace(fp); \
-    } \
-    else if(c==followup_char && peek==followup_char){ \
-        tok->type = type_res; \
-        skip_whitespace(fp); \
-    }
-    // -
-    
+    do{ \
+        int peek = textbuf_peekc(buffer); \
+        if(c==char_inv && peek!=followup_char){ \
+            tok->type = type_inv; \
+            token_addchar(c, tok); \
+        } \
+        else if(c==char_inv && peek==followup_char){ \
+            tok->type = type_res; \
+            token_addchar(c, tok); \
+            token_addchar(peek, tok); \
+            textbuf_getc(buffer); \
+        } \
+        skip_whitespace(buffer); \
+    } while(0);
+
+#define MAND_DOUBLE_CHAR_BRANCH(char_inv, followup_char, type_res) \
+    do{ \
+        int peek = textbuf_peekc(buffer); \
+        if(c==char_inv && peek!=followup_char){ \
+            char should[2] = {followup_char, '\0'}; \
+            expected(tok, should, peek); \
+        } \
+        else if(c==char_inv && peek==followup_char){ \
+            tok->type = type_res; \
+            token_addchar(c, tok); \
+            token_addchar(peek, tok); \
+            textbuf_getc(buffer); \
+        } \
+        skip_whitespace(buffer); \
+    } while(0);
+
     /*
      * S0: State-Zero of a DFA Graph
      *  The next state (S1, S2, S3) denoted by their definitive keyword
@@ -201,9 +328,9 @@ void s0(FILE *fp, token *tok){ // This is
      *  two starting characters (An easy ask). Rollbacks are not necessary 
      *  because we have said invariant. The time complexity remains at 0(n).
      */
-    token_addchar(fgetc(fp), tok);
-    int c = current_char(tok); // current_char
-    // This may be a good candidate for a macro
+    //token_addchar(textbuf_getc(buffer), tok);
+    int c = textbuf_getc(buffer); // current_char
+    
     KEYWORD_BRANCH("break", BREAK_K);
     KEYWORD_BRANCH("bool", BOOL_K);
     KEYWORD_BRANCH("continue", CONTINUE_K);
@@ -221,143 +348,186 @@ void s0(FILE *fp, token *tok){ // This is
 
     CHAR_BRANCH('/', DIV);
     CHAR_BRANCH('.', DOT);
-    CHAR_BRANCH('=', EQUALS);
+    DOUBLE_CHAR_BRANCH('=', EQUALS, '=', EE);
     CHAR_BRANCH('-', MINUS);
     CHAR_BRANCH('+', PLUS);
     CHAR_BRANCH('*', TIMES);
     CHAR_BRANCH('%', MOD);
-    DOUBLE_CHAR_BRANCH('>', GT, '=', GT_E);  // GT_E
-    CHAR_BRANCH('<', LT);  // LT_E
+    DOUBLE_CHAR_BRANCH('>', GT, '=', GT_E);  
+    DOUBLE_CHAR_BRANCH('<', LT, '=', LT_E); 
     CHAR_BRANCH('(', L_PAREN);
     CHAR_BRANCH(')', R_PAREN);
     CHAR_BRANCH('[', L_BRACE);
     CHAR_BRANCH(']', R_BRACE);
+    CHAR_BRANCH('{', L_CURLY);
+    CHAR_BRANCH('}', R_CURLY);
     CHAR_BRANCH('?', Q_MARK);
-    CHAR_BRANCH('!', BANG);
+    DOUBLE_CHAR_BRANCH('!', BANG, '=', NE);
     CHAR_BRANCH(':', COL);
     CHAR_BRANCH(';', SEMI_COL);
     CHAR_BRANCH('\'', QUOTE);
     CHAR_BRANCH('\"', QUOTE_D);
+    MAND_DOUBLE_CHAR_BRANCH('&', '&', AND);
+    MAND_DOUBLE_CHAR_BRANCH('|', '|', OR);
 
     if(c>='a' && c<='z' && tok->type==UNDET){
         tok->type == UNDET;
-        ident(fp, tok);
+        token_addchar(c, tok);
+        ident(buffer, tok);
+    }
+
+    if(c>='0' && c<='9' && tok->type==UNDET){
+        tok->type = INT;
+        token_addchar(c, tok);
+        number(buffer, tok);
     }
     
     if(is_whitespace(c) && tok->type == UNDET){
         tok->type = IDENT;
-        skip_whitespace(fp);
+        token_addchar(c, tok);
     }
+    skip_whitespace(buffer);
+
+    // TODO, characters that are not a part of any keyword need to be managed
+    // scanfail() that
+
     return;
 }
 
-void ident(FILE *fp, token *tok){
+void ident(textbuf *buffer, token *tok){
     // This is working with identifier
-    token_addchar(fgetc(fp), tok);
-    int c = current_char(tok); // current_char
+    // TODO allow identifiers to not have spaces around them.
     while(1){
+        int c = textbuf_peekc(buffer);
+        tok->type = IDENT;
+        skip_whitespace(buffer);
         if(c>='a' && c<='z'){
             //ident(fp, tok);
-            token_addchar(fgetc(fp), tok);
-            c = current_char(tok);
+            token_addchar(c, tok);
+            textbuf_getc(buffer);
+            c = textbuf_peekc(buffer);
             continue;
-        }else if(is_whitespace(c)){
-            printf_debug("-> <ident> %s\n", tok->lexeme);
-            tok->type = IDENT;
-            skip_whitespace(fp);
-            return;
         }
-        scan_fail(tok);
+        skip_whitespace(buffer);
+        return;
     }
 }
 
-void keyword(FILE *fp, token *tok, token_type word, char *rem){
+void number(textbuf *buffer, token *tok){
+    while(1){
+        int c = textbuf_peekc(buffer);
+        if(c>='0' && c<='9'){
+            textbuf_getc(buffer);
+            token_addchar(c, tok);
+            continue;
+        }
+        return;
+    }
+}
+
+void decimal(textbuf *buffer, token *tok){
+    while(1){
+        int c = textbuf_peekc(buffer);
+        if(c>='0' && c<='9'){
+            textbuf_getc(buffer);
+            token_addchar(c, tok);
+            continue;
+        }
+        return;
+    }
+
+}
+
+void keyword(textbuf *buffer, token *tok, token_type word, char *rem){
     /*
      * keyword is DFA which is kicked off by first letter,
      * and each following letter is a state, which must end in whitespace
      */
-    token_addchar(fgetc(fp), tok);
-    int c = current_char(tok); // current_char
+    int c = textbuf_peekc(buffer);
     
     for(int i=0;i<strlen(rem);i++){
         if(c == rem[i]){
             // good
-            token_addchar(fgetc(fp), tok);
-            c = current_char(tok); // current_char
+            token_addchar(c, tok);
+            textbuf_getc(buffer);
+            c = textbuf_peekc(buffer);
             continue;
         }
         if(c>='a' && c<='z' && tok->type==UNDET){
-            ident(fp, tok);
+            token_addchar(c, tok);
+            textbuf_getc(buffer);
+            c = textbuf_peekc(buffer);
+            ident(buffer, tok);
             return;
         }
         if(is_whitespace(c) && tok->type==UNDET){
-            printf_debug("-> <ident> %s\n", tok->lexeme);
             tok->type=IDENT;
-            skip_whitespace(fp);
+            skip_whitespace(buffer);
             return;
         }
-        scan_fail(tok);
+        scan_fail(tok, c);
     }
 
     // Last character is either a space returning a keyword or ident.
     //c = fgetc(fp);
     if(!is_whitespace(c)){
-        ident(fp, tok);
+        ident(buffer, tok);
         return;
     }
 
     tok->type=word;
-    skip_whitespace(fp);
-    printf_debug("-> <%d> %s\n", word, tok->lexeme);
+    skip_whitespace(buffer);
     return;
 }
 
-void tokenize(FILE *fp) {
+void tokenize(textbuf *buf) {
     int i = 0; 
     
-    token *token;
-    while(token = read_token(fp), strcmp("", token->lexeme) != 0){
-        printf("%s: %zu \n", token->lexeme, sizeof(token->lexeme));
+    token *token = malloc(sizeof(token));
+    while(read_token(buf, token), strcmp("", token->lexeme) != 0){
+        token_print(token);
     }
-    // TODO free each token 
+    free_token(token);
 }
 
-void tokenize_buffer(char *){
-
+void token_print(token *tok){
+    printf("<token [%s] \t [%s]> \n", tok->lexeme, get_token_type(tok->type));
 }
-
 
 #ifndef TESTBUILD
 int main(int argc, char **argv){
-    if(argc==1){
-        char buffer[256]; // Not dynamic yet
+    FILE * doc = stdin;
+    if(argc > 1){
+        doc = fopen(argv[1], "r");
+        printf_debug("Compiling: %s\n", argv[1]);
+
+        if(doc == NULL){
+            printf_debug("Cannot find or open file: %s\n", argv[1]);
+            exit(1);
+        }
+    }else{
         printf("decafc tokenizer REPL\n");
-        do{
-            if(strcmp(buffer, "exit\n") == 0){
-                printf("Terminating\n");
-                return 0;
-            }
-            printf("decafc > ");
-            tokenize_buffer(buffer);
-        }while(fgets(buffer, 256, stdin));
-    }
-    /*
-    if(argv[1] == NULL){
-        printf_debug("%i\n arguments provided", argc);
     }
 
-    FILE *fp;
-    fp = fopen(argv[1], "r");
-    printf_debug("Compiling: %s\n", argv[1]);
+    char * text = malloc(COL_COUNT);
+    textbuf buf = {
+        .size=COL_COUNT,
+        .text=text,
+        .loc=0,
+    };
 
-    if(fp == NULL){
-        printf_debug("Cannot find or open file: %s\n", argv[1]);
-        exit(1);
+    if(argc == 1) printf("decafc> ");
+    while(fgets(buf.text, buf.size, doc)){
+        buf.loc=0;
+        if(strcmp(buf.text, "exit\n") == 0){
+            printf("Terminating\n");
+            return 0;
+        }
+        tokenize(&buf);
+        if(argc == 1) printf("decafc> ");
     }
-    */
-    
 
-    //tokenize(fp);
+    free(text);
 }
 #endif
 
